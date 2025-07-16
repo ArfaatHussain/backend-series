@@ -24,4 +24,9 @@ app.use(cookieParser())
 
 app.use(globalErrorHandler)
 
+
+import router from "./routes/user.route.js";
+
+app.use("/users",router)
+
 export {app}
