@@ -25,8 +25,12 @@ app.use(cookieParser())
 app.use(globalErrorHandler)
 
 
-import router from "./routes/user.route.js";
+import userRouter from "./routes/user.route.js";
+import { videoRouter } from "./routes/video.route.js";
 
-app.use("/users",router)
+
+app.use("/users",userRouter)
+
+app.use("/video", videoRouter)
 
 export {app}
