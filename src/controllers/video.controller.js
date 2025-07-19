@@ -58,10 +58,9 @@ const upload = asyncHandler(async (req, res) => {
 
 const getVideos = asyncHandler(async (req, res) => {
 
-    const videos = await Video.find()
+    const videos = await Video.find({isPublished: true  })
 
-    const publishedVideos = videos.filter((item) => item.isPublished === true)
-    if (!publishedVideos || publishedVideos.length === 0) {
+    if (!videos || videos.length === 0) {
         return res.status(404).json({
             message: "No videos yet"
         })
@@ -70,7 +69,7 @@ const getVideos = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         message: "success",
-        data: publishedVideos
+        data: videos
     })
 })
 
@@ -104,9 +103,6 @@ const changePublishStatus = asyncHandler(async (req, res) => {
 
     const video = await Video.findById(videoId);
 
-    // console.log("Owner id: ",video.owner);
-    
-
     if (video.owner.toString() !== owner.toString()) {
         return res.status(401).json({
             message: "Owner id did not match"
@@ -122,5 +118,7 @@ const changePublishStatus = asyncHandler(async (req, res) => {
     })
 
 })
+
+
 
 export { upload, getVideos, changePublishStatus }

@@ -27,7 +27,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     console.log("Password after hashing: ", hashedPassword)
-    
+
     // upload
     const avatarResponse = await uploadFileOnCloudinary(avatar)
     const coverImageResponse = await uploadFileOnCloudinary(coverImage)
@@ -121,4 +121,150 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 })
 
-export { registerUser, loginUser, deleteUser };
+const updateUser = asyncHandler(async (req, res) => {
+    const fieldsToBeUpdated = {}
+
+    const { id, username, email, password, avatar, coverImage, fullName } = req.body;
+
+    if (!id) {
+        return res.status(400).json({
+            message: "Provide User ID"
+        })
+    }
+    if (!username && !email && !password && !avatar && !coverImage && !fullName) {
+        return res.status(400).json({
+            message: "Provide any field to update"
+        });
+    }
+    if (username) {
+        fieldsToBeUpdated.username = username
+    }
+    if (email) {
+        fieldsToBeUpdated.email = email
+    }
+    if (password) {
+        const hashedPassword = await bcrypt.hash(password, 10)
+        fieldsToBeUpdated.password = hashedPassword
+    }
+    if (fullName) {
+        fieldsToBeUpdated.fullName = fullName
+    }
+
+    if (avatar) {
+        console.info("Uploading avatar to cloudinary")
+        const avatarResponse = await uploadFileOnCloudinary(avatar)
+        fieldsToBeUpdated.avatar = avatarResponse.url
+        console.info("Got URL for Avatar")
+    }
+
+    if (coverImage) {
+        console.info("Uploading Cover Image to cloudinary")
+        const coverImageResponse = await uploadFileOnCloudinary(coverImage)
+        fieldsToBeUpdated.coverImage = coverImageResponse.url
+        console.info("Got URL for Cover Image")
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+            message: "User ID is not in valid format"
+        })
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, fieldsToBeUpdated, { new: true })
+
+    if (!updatedUser) {
+        return res.status(404).json({
+            message: "User does not exist with this ID"
+        })
+    }
+
+    res.status(200).json({
+        message: "User updated successfully",
+        data: updatedUser
+    })
+})
+
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find().select("-refreshToken -createdAt -updatedAt")
+    res.status(200).json({
+        message: "Success",
+        data: users
+    })
+})
+
+const updateWatchHistory = asyncHandler(async (req, res) => {
+    const { id, videoId } = req.body;
+
+    if (!id || !videoId) {
+        return res.status(400).json({
+            message: "Provide all fields"
+        })
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+            message: "User ID is not in valid format"
+        })
+    }
+
+
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        return res.status(400).json({
+            message: "Video ID is not in valid format"
+        })
+    }
+    const user = await User.findOne({ _id: id })
+
+    user.watchHistory.push(videoId)
+
+    await user.save()
+
+    res.status(200).json({
+        message: "Added video to watchHistory"
+    })
+
+})
+
+const getWatchHistoryVideos = asyncHandler( async (req,res)=>{
+
+    const {userId} = req.params;
+
+    if(!mongoose.Types.ObjectId.isValid(userId)){
+        return res.status(400).json({
+            message: "User ID is not in valid format"
+        })
+    }
+
+    const watchHistory = await User.aggregate([
+        {
+            $match: {_id: userId.toString() }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "videoDetails"
+            }
+        },
+        {
+            $unwind: "$videoDetails"
+        },
+        {
+            $project:{
+                _id: 1,
+                videoDetails: 1
+            }
+        }
+    ])
+
+    console.log("Videos Received: ",watchHistory);
+
+    res.status(200).json({
+        message: "success",
+        data: watchHistory
+    })
+    
+} )
+
+export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos};
