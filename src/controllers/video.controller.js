@@ -5,35 +5,28 @@ import { Video } from "../models/video.model.js";
 import mongoose from "mongoose";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
+import { ApiError } from "../utils/ApiError.js";
 
 const upload = asyncHandler(async (req, res) => {
 
     if (!req.body || Object.keys(req.body).length === 0) {
-        return res.status(400).json({
-            message: "Request body is missing"
-        })
+        throw new ApiError(400, "Request body is missing")
     }
 
     const { videoFile, thumbnail, title,
         owner, description, duration } = req.body
 
     if (!videoFile || !thumbnail || !title || !owner || !description || !duration) {
-        return res.status(400).json({
-            message: "Please provide all fields"
-        })
+        throw new ApiError(400, "Please provide all fields")
     }
 
     if (!mongoose.Types.ObjectId.isValid(owner)) {
-        return res.status(400).json({
-            message: "User id is not in valid format"
-        })
+        throw new ApiError(400, "User id is not in valid format")
     }
 
     const isUserExist = await User.findById(owner)
     if (!isUserExist) {
-        return res.status(404).json({
-            message: "User does not exist"
-        })
+        throw new ApiError(400, "User does not exist")
     }
 
     console.log("Uploading video to cloudinary...");
@@ -58,12 +51,10 @@ const upload = asyncHandler(async (req, res) => {
 
 const getVideos = asyncHandler(async (req, res) => {
 
-    const videos = await Video.find({isPublished: true  })
+    const videos = await Video.find({ isPublished: true })
 
     if (!videos || videos.length === 0) {
-        return res.status(404).json({
-            message: "No videos yet"
-        })
+        throw new ApiError(404, "No videos yet")
     }
 
 
@@ -76,37 +67,27 @@ const getVideos = asyncHandler(async (req, res) => {
 const changePublishStatus = asyncHandler(async (req, res) => {
 
     if (!req.body || Object.keys(req.body).length === 0) {
-        return res.status(400).json({
-            message: "Request body is missing"
-        })
+        throw new ApiError(400, "Request body is missing")
     }
 
     const { videoId, owner, status } = req.body;
 
-    if (!videoId || !owner || status===undefined) {
-        return res.status(400).json({
-            message: "Please provide all fields"
-        })
+    if (!videoId || !owner || status === undefined) {
+        throw new ApiError(400, "Please provide all fields")
     }
 
     if (!mongoose.Types.ObjectId.isValid(owner)) {
-        return res.status(400).json({
-            message: "User id is not in correct format"
-        })
+        throw new ApiError(400, "User id is not in correct format")
     }
 
     if (typeof status !== "boolean") {
-        return res.status(400).json({
-            message: "status must be boolean"
-        })
+        throw new ApiError(400, "status must be boolean")
     }
 
     const video = await Video.findById(videoId);
 
     if (video.owner.toString() !== owner.toString()) {
-        return res.status(401).json({
-            message: "Owner id did not match"
-        })
+        throw new ApiError(401, "Owner ID did not match")
     }
 
     await Video.updateOne({ _id: videoId }, {

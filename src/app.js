@@ -1,7 +1,6 @@
 import express from "express";
 import cors from 'cors';
 import cookieParser from "cookie-parser";
-import { globalErrorHandler } from "./utils/errorHandler.js";
 
 const app = express();
 
@@ -22,7 +21,6 @@ app.use(express.static("public"))
 // Helps to perform CRUD operations to Cookies
 app.use(cookieParser())
 
-app.use(globalErrorHandler)
 
 
 import userRouter from "./routes/user.route.js";

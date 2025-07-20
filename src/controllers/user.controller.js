@@ -6,21 +6,18 @@ import bcrypt from "bcrypt"
 import mongoose from "mongoose";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { ApiError } from "../utils/ApiError.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     const { username, email, password, avatar, coverImage, fullName } = req.body;
 
     if (!username || !email || !password || !avatar || !coverImage || !fullName) {
-        return res.status(400).json({
-            message: "Please enter all data"
-        })
+        throw new ApiError(400, "Enter all data")
     }
 
     const isUserExist = await User.findOne({ email })
     if (isUserExist) {
-        return res.status(409).json({
-            message: "User already exists."
-        })
+        throw new ApiError(409, "User already exists")
     }
     console.log("Password Before Hashing: ", password);
 
@@ -51,26 +48,29 @@ const registerUser = asyncHandler(async (req, res) => {
         refreshToken: refreshToken
     })
 
-
 })
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
+    if (!req.body || Object.keys(req.body).length === 0) {
+        throw new ApiError(400, "Send data in json format")
+    }
+
+    if (!email || !password) {
+        throw new ApiError(400, "Provide all data")
+    }
+
     const user = await User.findOne({ email })
 
     if (!user) {
-        return res.status(404).json({
-            message: "User does not exist"
-        })
+        throw new ApiError(404, "User does not exist")
     }
 
     const isPasswordValid = await user.isPasswordCorrect(password);
 
     if (!isPasswordValid) {
-        return res.status(401).json({
-            message: "Invalid email or password"
-        })
+        throw new ApiError(401, "Invalid email or password")
     }
     console.log("User received: ", user)
 
@@ -95,23 +95,17 @@ const deleteUser = asyncHandler(async (req, res) => {
     const { id } = req.params
 
     if (!id) {
-        return res.status(400).json({
-            message: "Provide id"
-        })
+        throw new ApiError(400, "Provide id")
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-            message: "Invalid User ID format"
-        })
+        throw new ApiError(400, "Invalid User ID format")
     }
 
     const isUserExist = await User.findById(id)
 
     if (!isUserExist) {
-        return res.status(404).json({
-            message: "User does not exist"
-        })
+        throw new ApiError(404, "User does not exist")
     }
 
     await User.deleteOne({ _id: id })
@@ -127,14 +121,10 @@ const updateUser = asyncHandler(async (req, res) => {
     const { id, username, email, password, avatar, coverImage, fullName } = req.body;
 
     if (!id) {
-        return res.status(400).json({
-            message: "Provide User ID"
-        })
+        throw new ApiError(400, "Provide User ID")
     }
     if (!username && !email && !password && !avatar && !coverImage && !fullName) {
-        return res.status(400).json({
-            message: "Provide any field to update"
-        });
+        throw new ApiError(400, "Provide any field to update")
     }
     if (username) {
         fieldsToBeUpdated.username = username
@@ -165,17 +155,13 @@ const updateUser = asyncHandler(async (req, res) => {
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-            message: "User ID is not in valid format"
-        })
+        throw new ApiError(400, "User ID is not in valid format")
     }
 
     const updatedUser = await User.findByIdAndUpdate(id, fieldsToBeUpdated, { new: true })
 
     if (!updatedUser) {
-        return res.status(404).json({
-            message: "User does not exist with this ID"
-        })
+        throw new ApiError(404, "User does not exist with this ID")
     }
 
     res.status(200).json({
@@ -196,22 +182,16 @@ const updateWatchHistory = asyncHandler(async (req, res) => {
     const { id, videoId } = req.body;
 
     if (!id || !videoId) {
-        return res.status(400).json({
-            message: "Provide all fields"
-        })
+        throw new ApiError(400, "Provide all fields")
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-            message: "User ID is not in valid format"
-        })
+        throw new ApiError(400, "User ID is not in valid format")
     }
 
 
     if (!mongoose.Types.ObjectId.isValid(videoId)) {
-        return res.status(400).json({
-            message: "Video ID is not in valid format"
-        })
+        throw new ApiError(400, "Video ID is not in valid format")
     }
     const user = await User.findOne({ _id: id })
 
@@ -225,19 +205,17 @@ const updateWatchHistory = asyncHandler(async (req, res) => {
 
 })
 
-const getWatchHistoryVideos = asyncHandler( async (req,res)=>{
+const getWatchHistoryVideos = asyncHandler(async (req, res) => {
 
-    const {userId} = req.params;
+    const { userId } = req.params;
 
-    if(!mongoose.Types.ObjectId.isValid(userId)){
-        return res.status(400).json({
-            message: "User ID is not in valid format"
-        })
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new ApiError(400,"User ID is not in valid format")
     }
 
     const watchHistory = await User.aggregate([
         {
-            $match: {_id: userId.toString() }
+            $match: { _id: userId.toString() }
         },
         {
             $lookup: {
@@ -251,20 +229,20 @@ const getWatchHistoryVideos = asyncHandler( async (req,res)=>{
             $unwind: "$videoDetails"
         },
         {
-            $project:{
+            $project: {
                 _id: 1,
                 videoDetails: 1
             }
         }
     ])
 
-    console.log("Videos Received: ",watchHistory);
+    console.log("Videos Received: ", watchHistory);
 
     res.status(200).json({
         message: "success",
         data: watchHistory
     })
-    
-} )
 
-export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos};
+})
+
+export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos };
