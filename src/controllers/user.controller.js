@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { ApiError } from "../utils/ApiError.js";
+import { Video } from "../models/video.model.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     const { username, email, password, avatar, coverImage, fullName } = req.body;
@@ -215,8 +216,19 @@ const updateWatchHistory = asyncHandler(async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(videoId)) {
         throw new ApiError(400, "Video ID is not in valid format")
     }
+
+    const isVideoExist = await Video.findById(videoId)
+    if(!isVideoExist){
+
+        throw new ApiError(404,"Video does not exist")
+    }
     const user = await User.findOne({ _id: id })
 
+    const isVideoAlreadyExist = user.watchHistory.findIndex((vid)=> vid.toString() == videoId.toString())
+
+    if(isVideoAlreadyExist !== -1){
+        throw new ApiError(409,"Video already exist in watch history")
+    }
     user.watchHistory.push(videoId)
 
     await user.save()
