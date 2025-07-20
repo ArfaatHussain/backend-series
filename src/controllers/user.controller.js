@@ -36,32 +36,45 @@ const registerUser = asyncHandler(async (req, res) => {
         coverImage: coverImageResponse.url,
         fullName
     }
-    const user = await User.create(data);
-
-    const refreshToken = await user.generateRefreshToken();
-
-    user.refreshToken = refreshToken;
-    await user.save()
+    await User.create(data);
 
     res.status(201).json({
         message: "User created Successfully",
-        refreshToken: refreshToken
     })
 
 })
 
+
+const generateAccessTokenAndRefreshToken = async (user) => {
+    try {
+        const accessToken = await user.generateAccessToken();
+        const refreshToken = await user.generateRefreshToken();
+
+        user.refreshToken = refreshToken
+        await user.save()
+
+        return { accessToken, refreshToken }
+    } catch (error) {
+        console.error("Something went wrong while generating Access and Refresh Tokens: ",error)
+    }
+}
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
 
     if (!req.body || Object.keys(req.body).length === 0) {
         throw new ApiError(400, "Send data in json format")
     }
 
-    if (!email || !password) {
-        throw new ApiError(400, "Provide all data")
+    if (!username && !email) {
+        throw new ApiError(400, "Provide username or email")
+    }
+    if (!password) {
+        throw new ApiError(400, "Provide password")
     }
 
-    const user = await User.findOne({ email })
+    const user = await User.findOne({
+        $or: [{ username }, { email }]
+    })
 
     if (!user) {
         throw new ApiError(404, "User does not exist")
@@ -74,6 +87,7 @@ const loginUser = asyncHandler(async (req, res) => {
     }
     console.log("User received: ", user)
 
+    const {accessToken, refreshToken} = await generateAccessTokenAndRefreshToken(user)
     const responseData = {
         username: user.username,
         email: user.email,
@@ -81,11 +95,19 @@ const loginUser = asyncHandler(async (req, res) => {
         coverImage: user.coverImage,
         fullName: user.fullName,
         watchHistory: user.watchHistory,
-        refreshToken: user.refreshToken,
+        refreshToken: refreshToken,
+        accessToken: accessToken,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
     }
-    res.status(200).json({
+    const options = {
+        httponly: true,
+        secure: true
+    }
+    res.status(200)
+    .cookie("accessToken",accessToken, options)
+    .cookie("refreshToken",refreshToken,options)
+    .json({
         message: "Success",
         data: responseData
     })
@@ -171,7 +193,7 @@ const updateUser = asyncHandler(async (req, res) => {
 })
 
 const getAllUsers = asyncHandler(async (req, res) => {
-    const users = await User.find().select("-refreshToken -createdAt -updatedAt")
+    const users = await User.find().select("-createdAt -updatedAt")
     res.status(200).json({
         message: "Success",
         data: users
@@ -210,7 +232,7 @@ const getWatchHistoryVideos = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new ApiError(400,"User ID is not in valid format")
+        throw new ApiError(400, "User ID is not in valid format")
     }
 
     const watchHistory = await User.aggregate([
@@ -245,4 +267,24 @@ const getWatchHistoryVideos = asyncHandler(async (req, res) => {
 
 })
 
-export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos };
+const logoutUser = asyncHandler( async(req,res)=>{
+    await User.findByIdAndUpdate(req.user._id,{
+        $set:{
+            refreshToken: undefined
+        }
+    })
+
+    const options = {
+        httponly: true,
+        secure: true
+    }
+    res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json({
+        message: "Logout Successfully"
+    })
+} )
+
+export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos, logoutUser };
