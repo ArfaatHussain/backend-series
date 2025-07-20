@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {registerUser,loginUser,deleteUser, updateUser, getAllUsers, getWatchHistoryVideos, updateWatchHistory, logoutUser} from "../controllers/user.controller.js";
+import {registerUser,loginUser,deleteUser, updateUser, getAllUsers, getWatchHistoryVideos, updateWatchHistory, logoutUser, refreshAccessToken} from "../controllers/user.controller.js";
 
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -21,5 +21,7 @@ userRouter.route("/getWatchHistoryVideos/:userId").get(getWatchHistoryVideos)
 userRouter.route("/updateWatchHistory").patch(updateWatchHistory)
 
 userRouter.route("/logout").post(verifyJWT, logoutUser)
+
+userRouter.route("/refreshAccessToken").post(refreshAccessToken)
 
 export default userRouter

@@ -8,6 +8,8 @@ import { uploadFileOnCloudinary } from "../utils/cloudinary.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Video } from "../models/video.model.js";
+import jwt from "jsonwebtoken"
+
 
 const registerUser = asyncHandler(async (req, res) => {
     const { username, email, password, avatar, coverImage, fullName } = req.body;
@@ -282,7 +284,7 @@ const getWatchHistoryVideos = asyncHandler(async (req, res) => {
 const logoutUser = asyncHandler( async(req,res)=>{
     await User.findByIdAndUpdate(req.user._id,{
         $set:{
-            refreshToken: undefined
+            refreshToken: null
         }
     })
 
@@ -299,4 +301,40 @@ const logoutUser = asyncHandler( async(req,res)=>{
     })
 } )
 
-export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos, logoutUser };
+const refreshAccessToken = asyncHandler( async(req,res)=>{
+    const incomingRefreshToken = req.cookies?.refreshToken ||req.body?.refreshToken
+
+    if(!incomingRefreshToken){
+        throw new ApiError(400,"Provide Refresh Token")
+    }
+    const decodedUser = jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)
+
+    const user = await User.findById(decodedUser._id)
+
+    if(!user){
+        throw new ApiError(404,"User not found with this refresh token")
+    }
+
+    if(incomingRefreshToken !== user?.refreshToken){
+        throw new ApiError(400,"Invalid Refresh Token")
+    }
+
+    const {refreshToken,accessToken} = await generateAccessTokenAndRefreshToken(user)
+
+    const options = {
+        httponly: true,
+        secure: true
+    }
+    res.status(201)
+    .cookie("refreshToken",refreshToken, options)
+    .cookie("accessToken",accessToken, options)
+    .json({
+        message: "success",
+        data: {
+            accessToken,
+            refreshToken
+        }
+    })
+} )
+
+export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos, logoutUser, refreshAccessToken };
