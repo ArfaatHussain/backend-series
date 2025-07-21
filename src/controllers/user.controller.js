@@ -249,34 +249,29 @@ const getWatchHistoryVideos = asyncHandler(async (req, res) => {
         throw new ApiError(400, "User ID is not in valid format")
     }
 
-    const watchHistory = await User.aggregate([
+    const data = await User.aggregate([
         {
-            $match: { _id: userId.toString() }
+            $match: { _id: new mongoose.Types.ObjectId(userId)}
         },
         {
             $lookup: {
                 from: "videos",
                 localField: "watchHistory",
                 foreignField: "_id",
-                as: "videoDetails"
+                as: "watchHistoryVideos"
             }
         },
         {
-            $unwind: "$videoDetails"
-        },
-        {
             $project: {
-                _id: 1,
-                videoDetails: 1
+                watchHistoryVideos: 1,
+                _id: 0
             }
         }
     ])
 
-    console.log("Videos Received: ", watchHistory);
-
     res.status(200).json({
         message: "success",
-        data: watchHistory
+        data: data
     })
 
 })
@@ -337,4 +332,81 @@ const refreshAccessToken = asyncHandler( async(req,res)=>{
     })
 } )
 
-export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos, logoutUser, refreshAccessToken };
+const getChannel = asyncHandler( async(req,res)=>{
+    const {username, userId} = req.body;
+
+    if(!username){
+        throw new ApiError(400,"username is missing")
+    }
+
+    if(!userId){
+        throw new ApiError(400,"User ID is missing")
+    }
+
+    /*
+    1st pipeline: extract channel based on username
+    2nd pipeline: get total subscribers
+    3rd pipeline: get subscribedTo channels
+    4th pipeline: counts subscribers, subscribedTo, isSubscribed
+    5th pipeline: select only necessary field
+    */
+    const channelInformation = await User.aggregate([
+        {
+            $match: {username: username}
+        },
+        {
+            $lookup:{
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields:{
+                totalSubscribers:{
+                    $size: "$subscribers"
+                },
+                totalSubscribedTo: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {
+                            $in: [userId,"$subscribers.subscriber"]
+                        },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },{
+            $project: {
+                _id: 1,
+                username: 1,
+                email: 1,
+                avatar: 1,
+                coverImage: 1,
+                totalSubscribers,
+                totalSubscribedTo,
+                isSubscribed,
+                fullName: 1
+            }
+        }
+    ])
+
+    res.status(200).json({
+        message: "success",
+        data: channelInformation
+    })
+} )
+
+export { registerUser, loginUser, deleteUser, updateUser, getAllUsers, updateWatchHistory, getWatchHistoryVideos, logoutUser, refreshAccessToken, getChannel };
