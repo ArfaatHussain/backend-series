@@ -49,7 +49,7 @@ const upload = asyncHandler(async (req, res) => {
     })
 })
 
-const getVideos = asyncHandler(async (req, res) => {
+const getAllVideos = asyncHandler(async (req, res) => {
 
     const videos = await Video.find({ isPublished: true })
 
@@ -100,6 +100,92 @@ const changePublishStatus = asyncHandler(async (req, res) => {
 
 })
 
+const likeVideo = asyncHandler(async (req, res) => {
+    const { userId, videoId } = req.body;
+
+    if (!userId || !videoId) {
+        throw new ApiError(400, "User ID or Video ID is missing")
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "User ID or Video ID is not in correct format")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(404,"Video not found")
+    }
+
+    const isUserAlreadyLiked = video.likedBy.some(item => item.toString() === userId.toString());
+
+    if (isUserAlreadyLiked) {
+        throw new ApiError(409, "User already liked this video")
+    }
+
+    video.likes = +1
+
+    video.likedBy?.push(userId)
+
+    await video.save()
+
+    res.status(201).json({
+        message: "success"
+    })
+})
+
+const getVideo = asyncHandler( async(req,res)=>{
+    const {videoId} = req.params
+
+    if(!videoId){
+        throw new ApiError(400,"Video ID is missing")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(404,"Video not found")
+    }
+
+    res.status(200).json({
+        message: "success",
+        data: video
+    })
+} )
+
+const addView = asyncHandler( async(req,res)=>{
+     const { userId, videoId } = req.body;
+
+    if (!userId || !videoId) {
+        throw new ApiError(400, "User ID or Video ID is missing")
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "User ID or Video ID is not in correct format")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(404,"Video not found")
+    }
+
+    const isUserAlreadyLiked = video.viewedBy?.some(item => item.toString() === userId.toString());
+
+    if (isUserAlreadyLiked) {
+        throw new ApiError(409, "User already viewed this video")
+    }
+
+    video.views = +1
+
+    video.viewedBy?.push(userId)
+
+    await video.save()
+
+    res.status(201).json({
+        message: "success"
+    })
+} )
 
 
-export { upload, getVideos, changePublishStatus }
+export { upload, getAllVideos, changePublishStatus, likeVideo, getVideo, addView }

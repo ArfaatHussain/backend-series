@@ -1,12 +1,19 @@
 import { Router } from "express";
-import { getVideos, upload, changePublishStatus } from "../controllers/video.controller.js";
+import { getAllVideos, upload, changePublishStatus, likeVideo , getVideo, addView} from "../controllers/video.controller.js";
 
 const videoRouter = Router()
 
 videoRouter.route("/upload").post(upload)
 
-videoRouter.route("/getVideos").get(getVideos)
+videoRouter.route("/getAllVideos").get(getAllVideos)
 
 videoRouter.route("/changePublishStatus").patch(changePublishStatus)
+
+videoRouter.route("/likeVideo").post(likeVideo)
+
+videoRouter.route("/getVideo/:videoId").get(getVideo)
+
+videoRouter.route("/addView").post(addView)
+
 
 export {videoRouter}
