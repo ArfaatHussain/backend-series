@@ -269,9 +269,10 @@ const getWatchHistoryVideos = asyncHandler(async (req, res) => {
         }
     ])
 
+    const watchHistoryVideos = data[0].watchHistoryVideos;
     res.status(200).json({
         message: "success",
-        data: data
+        data: watchHistoryVideos
     })
 
 })
